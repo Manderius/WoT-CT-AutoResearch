@@ -1,0 +1,10 @@
+<root>
+  <!-- Techical MOD ID -->
+  <id>noobkiller3759.ct_autoresearch</id>
+  <!-- Package version -->
+  <version>1.1</version>
+  <!-- Human readable name -->
+  <name>CT AutoResearch and AutoTrain</name>
+  <!-- Human readable description -->
+  <description>Research vehicles and train crews in a single click!</description>
+</root>

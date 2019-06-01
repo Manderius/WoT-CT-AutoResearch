@@ -204,3 +204,5 @@ def detach():
 	game.handleKeyEvent = old_handler
 
 game.handleKeyEvent = new_handler
+
+MYLOG("CT Research loaded")
