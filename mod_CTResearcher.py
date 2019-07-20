@@ -15,6 +15,10 @@ from gui.Scaleform.framework.managers.containers import POP_UP_CRITERIA
 from gui.Scaleform.genConsts.PREBATTLE_ALIASES import PREBATTLE_ALIASES
 from gui.Scaleform.framework import ViewTypes
 from gui.app_loader.decorators import def_lobby
+from gui.shared.gui_items.Vehicle import Vehicle
+from gui.Scaleform.daapi.view.lobby.techtree.research_page import Research
+from gui.Scaleform.genConsts.NODE_STATE_FLAGS import NODE_STATE_FLAGS
+from gui.Scaleform.daapi.view.lobby.techtree.settings import NODE_STATE
 
 import unicodedata
 import imp
@@ -25,8 +29,8 @@ def getItem(itemCD):
 	return g_currentVehicle.itemsCache.items.getItemByCD(itemCD)
 	
 def unlockItem(parentID, idx):
-	if g_currentVehicle.itemsCache.items.stats.actualFreeXP < 5000000:
-		pushErrorMessage("Unlocking is only available for CT")
+	if g_currentVehicle.itemsCache.items.stats.actualFreeXP < 3000000:
+		pushErrorMessage("Unlocking is only available for CT. This message appeared because you have less than 3 000 000 Free XP.")
 		return
 	doUnlockItem(parentID, idx)
 
@@ -45,12 +49,13 @@ def unlockItems(items):
 def pushErrorMessage(text):
 	SystemMessages.pushMessage(text, SystemMessages.SM_TYPE.Error)
 
-def getVehicleRequirements(intCD, successorCD=0):
+# Vehicle researching
+def researchVehicle(intCD, successorCD=0):
 	vehItem = getItem(intCD)
 	unlockingSequence = []
 	if not vehItem.isUnlocked:
 		unlockTuple = g_techTreeDP.getUnlockProps(intCD)
-		unlockingSequence.extend(getVehicleRequirements(unlockTuple[0], intCD))
+		unlockingSequence.extend(researchVehicle(unlockTuple[0], intCD))
 		MYLOG("Research {} ({}) for {} XP".format(vehItem.shortUserName, str(intCD), unlockTuple[2]))
 	else:
 		MYLOG("{} is already researched".format(vehItem.shortUserName))
@@ -122,8 +127,8 @@ def trainOPCrew(vehicle):
 	if not vehicle.isReadyToFight:
 		return
 
-	if g_currentVehicle.itemsCache.items.stats.actualFreeXP < 5000000:
-		pushErrorMessage("Unlocking is only available for CT. This error message appeared because you have less than 5 000 000 Free XP.")
+	if g_currentVehicle.itemsCache.items.stats.actualFreeXP < 3000000:
+		pushErrorMessage("Unlocking is only available for CT. This error message appeared because you have less than 3 000 000 Free XP.")
 		return 
 
 	for index, tankman in enumerate(vehicle.crew):
@@ -163,6 +168,25 @@ def trainOPCrew(vehicle):
 				continue
 			skills = addCrewSkill(tankman.invID, skill, skills)
 
+origSetItems = Research.as_setResearchItemsS
+def interceptSetResearchButton(self, nation, data):
+	data = self._data.dump()
+	state = data['nodes'][0]['state']
+	if (state & NODE_STATE_FLAGS.LOCKED > 0):
+		state = NODE_STATE.remove(state, NODE_STATE_FLAGS.LOCKED)
+		state = NODE_STATE.add(state, NODE_STATE_FLAGS.NEXT_2_UNLOCK)
+		state = NODE_STATE.add(state, NODE_STATE_FLAGS.ENOUGH_XP)
+		data['nodes'][0]['state'] = state
+	origSetItems(self, nation, data)
+
+oRequest4Unlock = Research.request4Unlock
+def interceptUnlockItem(self, itemCD, topLevel):
+	itemCD = int(itemCD)
+	if (isinstance(getItem(itemCD), Vehicle)):
+		researchVehicle(int(itemCD))
+	else:
+		oRequest4Unlock(self, itemCD, topLevel)
+
 def MYLOG(message=""):
 	try:
 		print(message)
@@ -180,7 +204,6 @@ lastTime = time.time()
 def new_handler(event):
 	isDown, key, mods, isRepeat = game.convertKeyEvent(event)
 	KEY_C = 46
-	KEY_R = 19
 	deflobby = def_lobby.appLoader.getApp()
 	squadWin = deflobby.containerManager.getView(ViewTypes.WINDOW, criteria={POP_UP_CRITERIA.VIEW_ALIAS: PREBATTLE_ALIASES.SQUAD_WINDOW_PY})
 	if squadWin and squadWin.isVisible():
@@ -188,12 +211,7 @@ def new_handler(event):
 		return 
 
 	global lastTime
-	if isDown and mods == 0 and key == KEY_R and time.time() - lastTime > 1: # R
-		lastTime = time.time()
-		if g_currentPreviewVehicle.isPresent():
-			getVehicleRequirements(g_currentPreviewVehicle.item.intCD)
-
-	if isDown and mods == 0 and key == KEY_C and time.time() - lastTime > 1: # C
+	if isDown and mods == 0 and key == KEY_C and time.time() - lastTime > 1:
 		lastTime = time.time()
 		if g_currentVehicle.isPresent():
 			trainOPCrew(g_currentVehicle.item)
@@ -204,5 +222,7 @@ def detach():
 	game.handleKeyEvent = old_handler
 
 game.handleKeyEvent = new_handler
+Research.as_setResearchItemsS = interceptSetResearchButton
+Research.request4Unlock = interceptUnlockItem
 
 MYLOG("CT Research loaded")
