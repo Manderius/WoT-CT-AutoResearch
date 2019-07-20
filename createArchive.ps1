@@ -12,9 +12,9 @@ $xmlDoc.Save(".\meta.xml")
 
 mkdir "$modDir"
 mv .\mod_CTResearcher.pyc (Join-Path -Path "$modDir" -ChildPath "${modName}.pyc")
-rm (Join-Path "$distFolder" ".\${modName}_${ver}.wotmod") -ErrorAction Ignore
+rm (Join-Path "$distFolder" "${modName}_*.wotmod") -ErrorAction Ignore
 $params = "a", "-mx=0", (Join-Path "$distFolder" ".\${modName}_${ver}.zip"), ".\res", ".\meta.xml"
 & $7zip $params
-mv (Join-Path "$distFolder" ".\${modName}_${ver}.zip") (Join-Path "$distFolder" ".\${modName}_${ver}.wotmod")
+mv (Join-Path "$distFolder" "${modName}_${ver}.zip") (Join-Path "$distFolder" ".\${modName}_${ver}.wotmod")
 
 rm -r .\res
