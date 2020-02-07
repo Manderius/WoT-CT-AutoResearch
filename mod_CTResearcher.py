@@ -1,3 +1,5 @@
+#region Imports
+
 import BigWorld
 from CurrentVehicle import g_currentVehicle
 from CurrentVehicle import g_currentPreviewVehicle
@@ -24,6 +26,9 @@ import unicodedata
 import imp
 import time
 
+#endregion
+
+#region Vehicle researching
 
 def getItem(itemCD):
 	return g_currentVehicle.itemsCache.items.getItemByCD(itemCD)
@@ -42,14 +47,10 @@ def doUnlockItem(parentID, unlockIdx):
 def unlockItems(items):
 	if items is None or len(items) == 0:
 		return
-	itemCD, parentID, idx, cost = items.pop(0)
+	parentID, idx = items.pop(0)
 	unlockItem(parentID, idx)
 	BigWorld.callback(1, lambda: unlockItems(items))
-	
-def pushErrorMessage(text):
-	SystemMessages.pushMessage(text, SystemMessages.SM_TYPE.Error)
 
-# Vehicle researching
 def researchVehicle(intCD, successorCD=0):
 	vehItem = getItem(intCD)
 	unlockingSequence = []
@@ -66,7 +67,7 @@ def researchVehicle(intCD, successorCD=0):
 		researchRequirements[data[2]] = data[3]
 
 	if successorCD != 0:
-		for unlockIdx, xpCost, nodeCD, required in researchRequirementsArr:
+		for unlockIdx, _, nodeCD, required in researchRequirementsArr:
 			if nodeCD == successorCD:
 				researched = set(vehItem.getAutoUnlockedItems())
 				while len(required) > 0:
@@ -82,13 +83,13 @@ def researchVehicle(intCD, successorCD=0):
 						if requiredForItem.issubset(researched):
 							MYLOG(" - research {}".format(item.shortUserName))
 							itemData = [data for data in researchRequirementsArr if data[2]==itemCD][0]
-							unlockingSequence.append([itemCD, intCD, itemData[0], itemData[1]])
+							unlockingSequence.append([intCD, itemData[0]])
 							requiredCopy.remove(itemCD)
 							researched.add(itemCD)
 					required = requiredCopy
 				
 				itemData = [data for data in researchRequirementsArr if data[2]==successorCD][0]
-				unlockingSequence.append([successorCD, intCD, itemData[0], itemData[1]])
+				unlockingSequence.append([intCD, itemData[0]])
 	else:
 		researched = set(vehItem.getAutoUnlockedItems())
 		itemsToBeResearched = len(researchRequirementsArr) + len(researched)
@@ -105,7 +106,7 @@ def researchVehicle(intCD, successorCD=0):
 				if required.issubset(researched):
 					item = getItem(nodeCD)
 					MYLOG(" - research {}".format(item.shortUserName))
-					arr = [nodeCD, intCD, unlockIdx, xpCost]
+					arr = [intCD, unlockIdx]
 					if not nodeCD in researched:
 						unlockingSequence.append(arr)
 						researched.add(nodeCD)
@@ -115,6 +116,10 @@ def researchVehicle(intCD, successorCD=0):
 		unlockItems(unlockingSequence)
 
 	return unlockingSequence
+
+#endregion
+
+#region Crew
 
 def addCrewSkill(crewInvID, skillName, skillCount):
 	xpCoef = 42012
@@ -131,7 +136,7 @@ def trainOPCrew(vehicle):
 		pushErrorMessage("Unlocking is only available for CT. This error message appeared because you have less than 3 000 000 Free XP.")
 		return 
 
-	for index, tankman in enumerate(vehicle.crew):
+	for _, tankman in enumerate(vehicle.crew):
 		tankman = tankman[1]
 		currentSkills = [skill.name for skill in tankman.skills]
 		currentSkillToMaxXP = int(tankman.getNextSkillXpCost() / 5.0 + 1)
@@ -168,7 +173,10 @@ def trainOPCrew(vehicle):
 				continue
 			skills = addCrewSkill(tankman.invID, skill, skills)
 
-origSetItems = Research.as_setResearchItemsS
+#endregion
+
+#region Intercepting functions
+
 def interceptSetResearchButton(self, nation, data):
 	data = self._data.dump()
 	state = data['nodes'][0]['state']
@@ -179,13 +187,16 @@ def interceptSetResearchButton(self, nation, data):
 		data['nodes'][0]['state'] = state
 	origSetItems(self, nation, data)
 
-oRequest4Unlock = Research.request4Unlock
 def interceptUnlockItem(self, itemCD, topLevel):
 	itemCD = int(itemCD)
 	if (isinstance(getItem(itemCD), Vehicle)):
 		researchVehicle(int(itemCD))
 	else:
-		oRequest4Unlock(self, itemCD, topLevel)
+		origRequest4Unlock(self, itemCD, topLevel)
+
+#endregion
+
+#region Utils
 
 def MYLOG(message=""):
 	try:
@@ -194,7 +205,12 @@ def MYLOG(message=""):
 		pass
 	LOG_NOTE(message)
 
-## Controls
+def pushErrorMessage(text):
+	SystemMessages.pushMessage(text, SystemMessages.SM_TYPE.Error)
+
+#endregion
+
+#region Keyboard controls
 
 import game
 
@@ -202,7 +218,7 @@ import game
 old_handler = game.handleKeyEvent
 lastTime = time.time()
 def new_handler(event):
-	isDown, key, mods, isRepeat = game.convertKeyEvent(event)
+	isDown, key, mods, _ = game.convertKeyEvent(event)
 	KEY_C = 46
 	deflobby = def_lobby.appLoader.getApp()
 	squadWin = deflobby.containerManager.getView(ViewTypes.WINDOW, criteria={POP_UP_CRITERIA.VIEW_ALIAS: PREBATTLE_ALIASES.SQUAD_WINDOW_PY})
@@ -218,11 +234,25 @@ def new_handler(event):
 	old_handler(event)
 	return
 
+#endregion
+
+#region Attaching and detaching functions
+
+origRequest4Unlock = Research.request4Unlock
+origSetItems = Research.as_setResearchItemsS
+
 def detach():
 	game.handleKeyEvent = old_handler
+	Research.as_setResearchItemsS = origSetItems
+	Research.request4Unlock = origRequest4Unlock
 
-game.handleKeyEvent = new_handler
-Research.as_setResearchItemsS = interceptSetResearchButton
-Research.request4Unlock = interceptUnlockItem
+def attach():
+	game.handleKeyEvent = new_handler
+	Research.as_setResearchItemsS = interceptSetResearchButton
+	Research.request4Unlock = interceptUnlockItem
+
+attach()
+
+#endregion
 
 MYLOG("CT Research loaded")

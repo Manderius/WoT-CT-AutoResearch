@@ -2,7 +2,7 @@ $ver = Get-Content .\version.txt
 $modDir = ".\res\scripts\client\gui\mods\"
 $modName = "mod_CTResearcher"
 $distFolder = ".\wotmod"
-$7zip="C:\Program Files\7-zip\7z.exe"
+$7zip="E:\ProgramFiles\7-zip\7z.exe"
 
 python2 -m py_compile .\mod_CTResearcher.py
 
