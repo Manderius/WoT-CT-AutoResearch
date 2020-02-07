@@ -18,6 +18,7 @@ from gui.Scaleform.genConsts.PREBATTLE_ALIASES import PREBATTLE_ALIASES
 from gui.Scaleform.framework import ViewTypes
 from gui.app_loader.decorators import def_lobby
 from gui.shared.gui_items.Vehicle import Vehicle
+from items import vehicles
 from gui.Scaleform.daapi.view.lobby.techtree.research_page import Research
 from gui.Scaleform.genConsts.NODE_STATE_FLAGS import NODE_STATE_FLAGS
 from gui.Scaleform.daapi.view.lobby.techtree.settings import NODE_STATE
@@ -41,17 +42,9 @@ def unlockItem(parentID, idx):
 
 @decorators.process('research')
 def doUnlockItem(parentID, unlockIdx):
-	result = yield unlock.UnlockItemProcessor(parentID, unlockIdx, plugins=[]).request()
-	MYLOG(result)
+	yield unlock.UnlockItemProcessor(parentID, unlockIdx, plugins=[]).request()
 
-def unlockItems(items):
-	if items is None or len(items) == 0:
-		return
-	parentID, idx = items.pop(0)
-	unlockItem(parentID, idx)
-	BigWorld.callback(1, lambda: unlockItems(items))
-
-def researchVehicle(intCD, successorCD=0):
+def researchVehicle(intCD, successorCD=0, callback=lambda: None):
 	vehItem = getItem(intCD)
 	unlockingSequence = []
 	if not vehItem.isUnlocked:
@@ -113,9 +106,43 @@ def researchVehicle(intCD, successorCD=0):
 						itemsToBeResearched -= 1
 
 		MYLOG(unlockingSequence)
-		unlockItems(unlockingSequence)
+		combinedCallback = lambda: (pushInfoMessage("Fully unlocked {}".format(vehItem.shortUserName)), callback())	
+		processQueue(unlockingSequence, lambda (parent, id): unlockItem(parent, id), 1, combinedCallback)
 
 	return unlockingSequence
+
+#endregion
+
+#region Modules
+
+def mountTopModules(vehCD):
+	MYLOG("Mounting top modules")
+	vehItem = getItem(vehCD)
+	modules = [data for data in vehItem.getUnlocksDescrs()]
+	bestModules = {}
+	order = ['vehicleChassis', 'vehicleTurret', 'vehicleEngine', 'vehicleGun', 'vehicleRadio']
+	for module in modules:
+		item = getItem(module[2])
+		if (isinstance(item, Vehicle)):
+			continue
+		moduleType = item.itemTypeName
+		requiredModules = len(module[3])
+		if not moduleType in bestModules:
+			bestModules[moduleType] = module
+		elif len(bestModules[moduleType][3]) < requiredModules or (len(bestModules[moduleType][3]) == requiredModules and bestModules[moduleType][1] < module[1]):
+			bestModules[moduleType] = module
+
+	MYLOG(str(bestModules))
+
+	moduleCDs = []
+	for moduleType in order:
+		if moduleType in bestModules:
+			moduleCDs.append(bestModules[moduleType][2])
+
+	processQueue(moduleCDs, lambda module: buyAndMountModule(vehCD, module), 1, lambda: pushInfoMessage("Mounted top modules on {}".format(vehItem.shortUserName)))
+
+def buyAndMountModule(vehCD, moduleCD):
+	ItemsActionsFactory.doAction(ItemsActionsFactory.BUY_AND_INSTALL_ITEM, moduleCD, vehCD, skipConfirm=True)
 
 #endregion
 
@@ -173,9 +200,16 @@ def trainOPCrew(vehicle):
 				continue
 			skills = addCrewSkill(tankman.invID, skill, skills)
 
+	BigWorld.callback(5, lambda: pushInfoMessage("Crew skills trained"))
+
 #endregion
 
 #region Intercepting functions
+
+def interceptVehicleBuy(nationIdx, innationIdx, *args, **kwargs):
+	origVehicleBuy(nationIdx, innationIdx, *args, **kwargs)
+	itemCD = vehicles.makeIntCompactDescrByID('vehicle', nationIdx, innationIdx)
+	researchVehicle(itemCD, 0, lambda: BigWorld.callback(3, lambda: mountTopModules(itemCD)))
 
 def interceptSetResearchButton(self, nation, data):
 	data = self._data.dump()
@@ -198,6 +232,14 @@ def interceptUnlockItem(self, itemCD, topLevel):
 
 #region Utils
 
+def processQueue(items, action, interval=1, onCompleted=lambda: None):
+	if items is None or len(items) == 0:
+		onCompleted()
+		return
+	item = items.pop(0)
+	action(item)
+	BigWorld.callback(interval, lambda: processQueue(items, action, interval, onCompleted))
+
 def MYLOG(message=""):
 	try:
 		print(message)
@@ -207,6 +249,9 @@ def MYLOG(message=""):
 
 def pushErrorMessage(text):
 	SystemMessages.pushMessage(text, SystemMessages.SM_TYPE.Error)
+
+def pushInfoMessage(text):
+	SystemMessages.pushMessage("<b>CT Research:</b><br>{}".format(text), SystemMessages.SM_TYPE.GameGreeting)
 
 #endregion
 
@@ -238,20 +283,37 @@ def new_handler(event):
 
 #region Attaching and detaching functions
 
-origRequest4Unlock = Research.request4Unlock
-origSetItems = Research.as_setResearchItemsS
+origRequest4Unlock = None 
+origSetItems = None
+origVehicleBuy = None
+
+def saveOrigAndAttach():
+	if (BigWorld.player() is None or not hasattr(BigWorld.player(), 'shop')):
+		BigWorld.callback(5, lambda: saveOrigAndAttach())
+		return
+
+	global origRequest4Unlock
+	global origSetItems
+	global origVehicleBuy
+	
+	origRequest4Unlock = Research.request4Unlock
+	origSetItems =  Research.as_setResearchItemsS
+	origVehicleBuy = BigWorld.player().shop.buyVehicle
+	attach()
 
 def detach():
 	game.handleKeyEvent = old_handler
 	Research.as_setResearchItemsS = origSetItems
 	Research.request4Unlock = origRequest4Unlock
+	BigWorld.player().shop.buyVehicle = origVehicleBuy
 
 def attach():
 	game.handleKeyEvent = new_handler
 	Research.as_setResearchItemsS = interceptSetResearchButton
 	Research.request4Unlock = interceptUnlockItem
+	BigWorld.player().shop.buyVehicle = interceptVehicleBuy
 
-attach()
+saveOrigAndAttach()
 
 #endregion
 
