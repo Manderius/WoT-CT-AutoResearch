@@ -15,7 +15,7 @@ from gui.shared.gui_items.items_actions import factory as ItemsActionsFactory
 from gui import SystemMessages
 from gui.Scaleform.framework.managers.containers import POP_UP_CRITERIA
 from gui.Scaleform.genConsts.PREBATTLE_ALIASES import PREBATTLE_ALIASES
-from gui.Scaleform.framework import ViewTypes
+from frameworks.wulf import WindowLayer
 from gui.app_loader.decorators import def_lobby
 from gui.shared.gui_items.Vehicle import Vehicle
 from items import vehicles
@@ -266,7 +266,7 @@ def new_handler(event):
 	isDown, key, mods, _ = game.convertKeyEvent(event)
 	KEY_C = 46
 	deflobby = def_lobby.appLoader.getApp()
-	squadWin = deflobby.containerManager.getView(ViewTypes.WINDOW, criteria={POP_UP_CRITERIA.VIEW_ALIAS: PREBATTLE_ALIASES.SQUAD_WINDOW_PY})
+	squadWin = deflobby.containerManager.getView(WindowLayer.WINDOW, criteria={POP_UP_CRITERIA.VIEW_ALIAS: PREBATTLE_ALIASES.SQUAD_WINDOW_PY})
 	if squadWin and squadWin.isVisible():
 		old_handler(event)
 		return 
