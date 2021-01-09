@@ -22,6 +22,10 @@ from items import vehicles
 from gui.Scaleform.daapi.view.lobby.techtree.research_page import Research
 from gui.Scaleform.genConsts.NODE_STATE_FLAGS import NODE_STATE_FLAGS
 from gui.Scaleform.daapi.view.lobby.techtree.settings import NODE_STATE
+from skeletons.gui.game_control import IPlatoonController
+from gui.game_control.platoon_controller import _EPlatoonLayout
+from skeletons.gui.impl import IGuiLoader
+from helpers import dependency
 
 import unicodedata
 import imp
@@ -253,6 +257,13 @@ def pushErrorMessage(text):
 def pushInfoMessage(text):
 	SystemMessages.pushMessage("<b>CT Research:</b><br>{}".format(text), SystemMessages.SM_TYPE.GameGreeting)
 
+def isPlatoonUIVisible():
+	platoonCtrl = dependency.instance(IPlatoonController)
+	uiLoader = dependency.instance(IGuiLoader)
+	pltLayout = platoonCtrl._PlatoonController__ePlatoonLayouts[_EPlatoonLayout.MEMBER]
+	platoonWin = uiLoader.windowsManager.getViewByLayoutID(layoutID=pltLayout.layoutID)
+	return platoonWin != None and not platoonWin.getParentWindow().isHidden()
+
 #endregion
 
 #region Keyboard controls
@@ -265,9 +276,7 @@ lastTime = time.time()
 def new_handler(event):
 	isDown, key, mods, _ = game.convertKeyEvent(event)
 	KEY_C = 46
-	deflobby = def_lobby.appLoader.getApp()
-	squadWin = deflobby.containerManager.getView(WindowLayer.WINDOW, criteria={POP_UP_CRITERIA.VIEW_ALIAS: PREBATTLE_ALIASES.SQUAD_WINDOW_PY})
-	if squadWin and squadWin.isVisible():
+	if isPlatoonUIVisible():
 		old_handler(event)
 		return 
 
