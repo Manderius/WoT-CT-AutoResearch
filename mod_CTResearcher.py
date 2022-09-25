@@ -44,7 +44,7 @@ def unlockItem(parentID, idx):
 		return
 	doUnlockItem(parentID, idx)
 
-@decorators.process('research')
+@decorators.adisp_process('research')
 def doUnlockItem(parentID, unlockIdx):
 	yield unlock.UnlockItemProcessor(parentID, unlockIdx, plugins=[]).request()
 
@@ -146,7 +146,7 @@ def mountTopModules(vehCD):
 	processQueue(moduleCDs, lambda module: buyAndMountModule(vehCD, module), 1, lambda: pushInfoMessage("Mounted top modules on {}".format(vehItem.shortUserName)))
 
 def buyAndMountModule(vehCD, moduleCD):
-	ItemsActionsFactory.doAction(ItemsActionsFactory.BUY_AND_INSTALL_ITEM, moduleCD, vehCD, skipConfirm=True)
+	ItemsActionsFactory.doAction(ItemsActionsFactory.BUY_AND_INSTALL_AND_SELL_ITEM, moduleCD, vehCD, skipConfirm=True)
 
 #endregion
 
@@ -176,7 +176,7 @@ def trainOPCrew(vehicle):
 		
 		roles = tankman.combinedRoles
 		if 'commander' in roles:
-			skillsToLearn.append('commander_sixthSense')
+			skillsToLearn.append('commander_enemyShotPredictor')
 			skillsToLearn.append('commander_eagleEye')
 		if 'radioman' in roles:
 			skillsToLearn.append('radioman_finder')
