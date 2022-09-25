@@ -155,8 +155,10 @@ def buyAndMountModule(vehCD, moduleCD):
 def addCrewSkill(crewInvID, skillName, skillCount):
 	xpCoef = 42012
 	print("Request to add skill ", skillName, "to tankman", crewInvID, "as his skill number", skillCount + 1)
-	BigWorld.callback(0.1, lambda: BigWorld.player().inventory.freeXPToTankman(crewInvID, xpCoef * (2 ** skillCount), None))
-	BigWorld.callback(4, lambda: BigWorld.player().inventory.addTankmanSkill(crewInvID, skillName, None))
+	# BigWorld.callback(0.1, lambda: BigWorld.player().inventory.freeXPToTankman(crewInvID, xpCoef * (2 ** skillCount), None))
+	# BigWorld.callback(4, lambda: BigWorld.player().inventory.addTankmanSkill(crewInvID, skillName, None))
+	BigWorld.player().inventory.freeXPToTankman(crewInvID, xpCoef * (2 ** skillCount), None)
+	BigWorld.player().inventory.addTankmanSkill(crewInvID, skillName, None)
 	return skillCount + 1
 
 def trainOPCrew(vehicle):
@@ -166,7 +168,8 @@ def trainOPCrew(vehicle):
 	if g_currentVehicle.itemsCache.items.stats.actualFreeXP < 3000000:
 		pushErrorMessage("Unlocking is only available for CT. This error message appeared because you have less than 3 000 000 Free XP.")
 		return 
-
+	
+	trainingQueue = []
 	for _, tankman in enumerate(vehicle.crew):
 		tankman = tankman[1]
 		currentSkills = [skill.name for skill in tankman.skills]
@@ -196,15 +199,19 @@ def trainOPCrew(vehicle):
 						needXp += descr.levelUpXpCost(level, lastSkillNumValue)
 
 					currentSkillToMaxXP = int(needXp / 5.0 + 1)
-				print("Next XP cost: ", currentSkillToMaxXP)
-			BigWorld.player().inventory.freeXPToTankman(tankman.invID, currentSkillToMaxXP, None)
+					print("Next XP cost: " + str(currentSkillToMaxXP))
+			if currentSkillToMaxXP > 1:
+				BigWorld.player().inventory.freeXPToTankman(tankman.invID, currentSkillToMaxXP, None)
 
 		for skill in skillsToLearn:
 			if skill in currentSkills:
 				continue
-			skills = addCrewSkill(tankman.invID, skill, skills)
+			trainingQueue.append((tankman.invID, skill, skills))
+			skills += 1
 
-	BigWorld.callback(5, lambda: pushInfoMessage("Crew skills trained"))
+	pushInfoMessage("Training crew...\nThe game will freeze for a few seconds.")
+	doTraining = lambda: processQueue(trainingQueue, lambda (invID, skill, skills): addCrewSkill(invID, skill, skills), 0.1, lambda: pushInfoMessage("Trained crew on {}".format(vehicle.shortUserName)))
+	BigWorld.callback(1.5, doTraining)
 
 #endregion
 
