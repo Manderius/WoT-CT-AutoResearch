@@ -184,7 +184,7 @@ def trainOPCrew(vehicle):
 		if 'radioman' in roles:
 			skillsToLearn.append('radioman_finder')
 		if 'loader' in roles:
-			skillsToLearn.append('loader_pedant')
+			skillsToLearn.append('loader_intuition')
 
 		if currentSkillToMaxXP > 0:
 			if tankman.roleLevel < 100 and bool(tankman.skills):
