@@ -23,7 +23,7 @@ from gui.Scaleform.daapi.view.lobby.techtree.research_page import Research
 from gui.Scaleform.genConsts.NODE_STATE_FLAGS import NODE_STATE_FLAGS
 from gui.Scaleform.daapi.view.lobby.techtree.settings import NODE_STATE
 from skeletons.gui.game_control import IPlatoonController
-from gui.game_control.platoon_controller import _EPlatoonLayout
+from gui.impl.lobby.platoon.platoon_config import EPlatoonLayout, buildCurrentLayouts
 from skeletons.gui.impl import IGuiLoader
 from helpers import dependency
 
@@ -265,9 +265,8 @@ def pushInfoMessage(text):
 	SystemMessages.pushMessage("<b>CT Research:</b><br>{}".format(text), SystemMessages.SM_TYPE.GameGreeting)
 
 def isPlatoonUIVisible():
-	platoonCtrl = dependency.instance(IPlatoonController)
 	uiLoader = dependency.instance(IGuiLoader)
-	pltLayout = platoonCtrl._PlatoonController__ePlatoonLayouts[_EPlatoonLayout.MEMBER]
+	pltLayout = buildCurrentLayouts()[EPlatoonLayout.MEMBER]
 	platoonWin = uiLoader.windowsManager.getViewByLayoutID(layoutID=pltLayout.layoutID)
 	return platoonWin != None and not platoonWin.getParentWindow().isHidden()
 
