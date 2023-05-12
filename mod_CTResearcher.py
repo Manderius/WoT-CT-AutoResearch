@@ -210,7 +210,7 @@ def trainOPCrew(vehicle):
 			skills += 1
 
 	pushInfoMessage("Training crew...\nThe game will freeze for a few seconds.")
-	doTraining = lambda: processQueue(trainingQueue, lambda (invID, skill, skills): addCrewSkill(invID, skill, skills), 0.1, lambda: pushInfoMessage("Trained crew on {}".format(vehicle.shortUserName)))
+	doTraining = lambda: processQueue(trainingQueue, lambda (invID, skill, skills): addCrewSkill(invID, skill, skills), 0.5, lambda: pushInfoMessage("Trained crew on {}".format(vehicle.shortUserName)))
 	BigWorld.callback(1.5, doTraining)
 
 #endregion
