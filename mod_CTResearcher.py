@@ -283,16 +283,14 @@ def new_handler(event):
 	isDown, key, mods, _ = game.convertKeyEvent(event)
 	KEY_C = 46
 	if isPlatoonUIVisible():
-		old_handler(event)
-		return 
+		return old_handler(event)
 
 	global lastTime
 	if isDown and mods == 0 and key == KEY_C and time.time() - lastTime > 1:
 		lastTime = time.time()
 		if g_currentVehicle.isPresent():
 			trainOPCrew(g_currentVehicle.item)
-	old_handler(event)
-	return
+	return old_handler(event)
 
 #endregion
 
