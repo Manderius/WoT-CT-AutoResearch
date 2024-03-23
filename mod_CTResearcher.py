@@ -151,14 +151,30 @@ def buyAndMountModule(vehCD, moduleCD):
 #endregion
 
 #region Crew
+	
+def addXPForFullSkill(tankman):
+	if tankman.descriptor.lastSkillLevel < 100:
+		xpNeeded = int(tankman.getNextSkillXpCost() / 5.0 + 1)
+		ItemsActionsFactory.doAction(ItemsActionsFactory.USE_FREE_XP_TO_TANKMAN, xpNeeded, tankman.invID, 0, 1)
+		return True
+	return False
+	
 
-def addCrewSkill(crewInvID, skillName, skillCount):
-	xpCoef = 42012
-	print("Request to add skill ", skillName, "to tankman", crewInvID, "as his skill number", skillCount + 1)
-	# BigWorld.callback(0.1, lambda: BigWorld.player().inventory.freeXPToTankman(crewInvID, xpCoef * (2 ** skillCount), None))
-	# BigWorld.callback(4, lambda: BigWorld.player().inventory.addTankmanSkill(crewInvID, skillName, None))
-	BigWorld.player().inventory.freeXPToTankman(crewInvID, xpCoef * (2 ** skillCount), None)
-	BigWorld.player().inventory.addTankmanSkill(crewInvID, skillName, None)
+def addCrewSkill(tankman, skillName, skillCount):
+	def ensureFullXP():
+		updatedTankman = [ tankm for tankm in g_currentVehicle.item.crew if tankm[1].invID == tankman.invID ][0][1]
+		addXPForFullSkill(updatedTankman)
+		
+	print("Request to add skill ", skillName, "to tankman", tankman.fullUserName.encode("utf-8"), "as his skill number", skillCount + 1)
+	crewInvID = tankman.invID
+	wasXPAdded = addXPForFullSkill(tankman)
+	if (wasXPAdded):
+		BigWorld.callback(1, lambda: BigWorld.player().inventory.addTankmanSkill(crewInvID, skillName, None))
+		BigWorld.callback(2, lambda: ensureFullXP())
+	else:
+		BigWorld.player().inventory.addTankmanSkill(crewInvID, skillName, None)
+		BigWorld.callback(1, lambda: ensureFullXP())
+	
 	return skillCount + 1
 
 def trainOPCrew(vehicle):
@@ -186,31 +202,18 @@ def trainOPCrew(vehicle):
 		if 'loader' in roles:
 			skillsToLearn.append('loader_intuition')
 
-		if currentSkillToMaxXP > 0:
-			if tankman.roleLevel < 100 and bool(tankman.skills):
-				print("Max level cost: ", currentSkillToMaxXP)
-				BigWorld.player().inventory.freeXPToTankman(tankman.invID, currentSkillToMaxXP, None)
-				if (tankman.descriptor.lastSkillLevel < 100):
-					descr = tankman.descriptor
-					lastSkillNumValue = descr.lastSkillNumber - descr.freeSkillsNumber
-					nextSkillLevel = descr.lastSkillLevel
-					needXp = 0
-					for level in xrange(nextSkillLevel, 100):
-						needXp += descr.levelUpXpCost(level, lastSkillNumValue)
-
-					currentSkillToMaxXP = int(needXp / 5.0 + 1)
-					print("Next XP cost: " + str(currentSkillToMaxXP))
-			if currentSkillToMaxXP > 1:
-				BigWorld.player().inventory.freeXPToTankman(tankman.invID, currentSkillToMaxXP, None)
+		if currentSkillToMaxXP > 1:
+			ItemsActionsFactory.doAction(ItemsActionsFactory.USE_FREE_XP_TO_TANKMAN, currentSkillToMaxXP, tankman.invID, 0, 1)
+			tankman = [ tankm for tankm in g_currentVehicle.item.crew if tankm[1].invID == tankman.invID ][0][1]
 
 		for skill in skillsToLearn:
 			if skill in currentSkills:
 				continue
-			trainingQueue.append((tankman.invID, skill, skills))
+			trainingQueue.append((tankman, skill, skills))
 			skills += 1
 
 	pushInfoMessage("Training crew...\nThe game will freeze for a few seconds.")
-	doTraining = lambda: processQueue(trainingQueue, lambda (invID, skill, skills): addCrewSkill(invID, skill, skills), 0.5, lambda: pushInfoMessage("Trained crew on {}".format(vehicle.shortUserName)))
+	doTraining = lambda: processQueue(trainingQueue, lambda (tman, skill, skills): addCrewSkill(tman, skill, skills), 3, lambda: pushInfoMessage("Trained crew on {}".format(vehicle.shortUserName)))
 	BigWorld.callback(1.5, doTraining)
 
 #endregion
