@@ -280,8 +280,9 @@ def isPlatoonUIVisible():
 import game
 
 
-old_handler = game.handleKeyEvent
+old_handler = None
 lastTime = time.time()
+
 def new_handler(event):
 	isDown, key, mods, _ = game.convertKeyEvent(event)
 	KEY_C = 46
@@ -293,6 +294,7 @@ def new_handler(event):
 		lastTime = time.time()
 		if g_currentVehicle.isPresent():
 			trainOPCrew(g_currentVehicle.item)
+
 	return old_handler(event)
 
 #endregion
@@ -308,10 +310,12 @@ def saveOrigAndAttach():
 		BigWorld.callback(5, lambda: saveOrigAndAttach())
 		return
 
+	global old_handler
 	global origRequest4Unlock
 	global origSetItems
 	global origVehicleBuy
-	
+
+	old_handler = game.handleKeyEvent
 	origRequest4Unlock = Research.request4Unlock
 	origSetItems =  Research.as_setResearchItemsS
 	origVehicleBuy = BigWorld.player().shop.buyVehicle
